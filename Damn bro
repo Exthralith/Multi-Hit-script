@@ -1,0 +1,133 @@
+-- PLEROMA MULTI-HIT v3.1 – FIXED FOR DELTA, NO PASTEBIN NEEDED
+-- Auto-finds "newRemote" upvalue + 100 hits on G (lock with H)
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local getgc = getgc or function() return {} end
+
+-- Find the damage remote from "newRemote" upvalue (from your scan)
+local damageRemote = nil
+for _, obj in ipairs(getgc(true)) do
+    if type(obj) == "function" then
+        local info = debug.getinfo(obj)
+        if info.name == "newRemote" then
+            for i = 1, info.nups do
+                local _, upval = debug.getupvalue(obj, i)
+                if type(upval) == "Instance" and upval:IsA("RemoteEvent") then
+                    damageRemote = upval
+                    print("SUCCESS: Damage remote found - " .. upval.Name)
+                    break
+                end
+            end
+        end
+    end
+    if damageRemote then break end
+end
+
+if not damageRemote then
+    print("ERROR: No 'newRemote' found. Attack once, then re-inject.")
+    return
+end
+
+-- Simple UI (top-left)
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 200, 0, 80)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+frame.BorderSizePixel = 0
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Text = "Multi-Hit Ready (G=Spam, H=Lock)"
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+
+local countBox = Instance.new("TextBox", frame)
+countBox.Size = UDim2.new(1, 0, 0, 20)
+countBox.Position = UDim2.new(0, 0, 0, 20)
+countBox.Text = "100"
+countBox.TextColor3 = Color3.new(1,1,1)
+countBox.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(1, 0, 0, 20)
+status.Position = UDim2.new(0, 0, 0, 40)
+status.Text = "Status: Ready"
+status.BackgroundTransparency = 1
+status.TextColor3 = Color3.new(0,1,0)
+
+local hitCount = 100
+countBox.FocusLost:Connect(function()
+    hitCount = math.max(1, tonumber(countBox.Text) or 100)
+    status.Text = "Hits set: " .. hitCount
+end)
+
+-- Target lock (H key)
+local target = nil
+local function lockNearest()
+    local closest, dist = nil, math.huge
+    -- Players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if root and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                if d < dist then
+                    dist, closest = d, plr.Character
+                end
+            end
+        end
+    end
+    -- NPCs (Models with Humanoid)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Humanoid") and obj.Parent ~= LocalPlayer.Character then
+            local root = obj.Parent:FindFirstChild("HumanoidRootPart")
+            if root and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                if d < dist then
+                    dist, closest = d, obj.Parent
+                end
+            end
+        end
+    end
+    target = closest
+    if closest then
+        status.Text = "Locked: " .. closest.Name .. " (" .. math.floor(dist) .. " studs)"
+    else
+        status.Text = "No target nearby"
+    end
+end
+
+-- Spam hits (G key)
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        lockNearest()
+    elseif input.KeyCode == Enum.KeyCode.G and target then
+        local hum = target:FindFirstChild("Humanoid")
+        if not hum then
+            status.Text = "Target has no Humanoid"
+            return
+        end
+        status.Text = "Spamming " .. hitCount .. " hits..."
+        local hitsLanded = 0
+        for i = 1, hitCount do
+            pcall(function()
+                damageRemote:FireServer(hum, 999)  -- Main: Humanoid + Damage
+                damageRemote:FireServer(target.HumanoidRootPart, 999)  -- Fallback: Part + Damage
+                hitsLanded = hitsLanded + 1
+            end)
+            if i % 10 == 0 then wait() end  -- Tiny delay to avoid lag
+        end
+        status.Text = "Complete: " .. hitsLanded .. "/" .. hitCount .. " hits landed"
+    end
+end)
+
+print("=== PLEROMA MULTI-HIT v3.1 LOADED ===")
+print("- UI: Top-left, set hits & press Enter")
+print("- H: Lock nearest player/NPC")
+print("- G: Spam hits (equip weapon first)")
+print("- Remote: " .. damageRemote.Name)
