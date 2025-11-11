@@ -1,126 +1,119 @@
--- PLEROMA AOE MULTI-HIT v5 – HITS EVERYONE (Delta Safe via Loadstring)
--- G = Spam ALL players/NPCs | Toggle AOE/Single | Modifiable hits
-
-local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
+-- PLEROMA AOE MULTI-HIT v6 – FINAL (Delta + Attack Fix)
+local P = game:GetService("Players")
+local U = game:GetService("UserInputService")
+local L = P.LocalPlayer
 local getgc = getgc or function() return {} end
 
--- Find damage remote from "newRemote" upvalue
-local damageRemote = nil
-for _, obj in ipairs(getgc(true)) do
-    if type(obj) == "function" then
-        local info = debug.getinfo(obj)
-        if info.name == "newRemote" then
-            for i = 1, info.nups do
-                local _, upval = debug.getupvalue(obj, i)
-                if type(upval) == "Instance" and upval:IsA("RemoteEvent") then
-                    damageRemote = upval
-                    print("FOUND REMOTE: " .. upval:GetFullName())
+local r = nil
+for _, o in ipairs(getgc(true)) do
+    if type(o) == "function" then
+        local i = debug.getinfo(o)
+        if i.name == "newRemote" then
+            for j = 1, i.nups do
+                local _, v = debug.getupvalue(o, j)
+                if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                    r = v
+                    print("REMOTE FOUND: " .. v:GetFullName())
                     break
                 end
             end
         end
     end
-    if damageRemote then break end
+    if r then break end
 end
 
-if not damageRemote then
+if not r then
     error("Attack once with weapon, then re-inject!")
 end
 
--- Config
-local hitCount = 100
-local aoeMode = true
+local hits = 100
+local aoe = true
 
 -- UI
-local gui = Instance.new("ScreenGui", game.CoreGui)
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 230, 0, 110)
-frame.Position = UDim2.new(0, 10, 0, 10)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+local g = Instance.new("ScreenGui", game.CoreGui)
+local f = Instance.new("Frame", g)
+f.Size = UDim2.new(0, 230, 0, 110)
+f.Position = UDim2.new(0, 10, 0, 10)
+f.BackgroundColor3 = Color3.fromRGB(25,25,25)
 
-local title = Instance.new("TextLabel", frame)
+local title = Instance.new("TextLabel", f)
 title.Size = UDim2.new(1,0,0,30)
 title.Text = "AOE MULTI-HIT"
 title.BackgroundTransparency = 1
-title.TextColor3 = Color3.fromRGB(255, 215, 0)
+title.TextColor3 = Color3.fromRGB(255,215,0)
 title.Font = Enum.Font.GothamBold
 
-local box = Instance.new("TextBox", frame)
+local box = Instance.new("TextBox", f)
 box.Size = UDim2.new(1,0,0,30)
 box.Position = UDim2.new(0,0,0,30)
 box.Text = "100"
-box.PlaceholderText = "Hits per target"
 box.BackgroundColor3 = Color3.fromRGB(50,50,50)
 box.TextColor3 = Color3.new(1,1,1)
 
-local status = Instance.new("TextLabel", frame)
+local status = Instance.new("TextLabel", f)
 status.Size = UDim2.new(1,0,0,25)
 status.Position = UDim2.new(0,0,0,60)
 status.BackgroundTransparency = 1
-status.TextColor3 = Color3.fromRGB(0,255,0)
 status.Text = "Ready"
+status.TextColor3 = Color3.fromRGB(0,255,0)
 
-local toggle = Instance.new("TextButton", frame)
+local toggle = Instance.new("TextButton", f)
 toggle.Size = UDim2.new(1,0,0,25)
 toggle.Position = UDim2.new(0,0,0,85)
 toggle.Text = "AOE: ON"
-toggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-toggle.TextColor3 = Color3.new(1,1,1)
+toggle.BackgroundColor3 = Color3.fromRGB(0,150,0)
 
--- Update hit count
+-- Update hits
 box.FocusLost:Connect(function()
-    hitCount = math.max(1, tonumber(box.Text) or 100)
-    status.Text = "Hits: " .. hitCount .. " | AOE: " .. (aoeMode and "ON" or "OFF")
+    hits = math.max(1, tonumber(box.Text) or 100)
+    status.Text = "Hits: " .. hits .. " | AOE: " .. (aoe and "ON" or "OFF")
 end)
 
--- Toggle AOE
+-- Toggle
 toggle.MouseButton1Click:Connect(function()
-    aoeMode = not aoeMode
-    toggle.Text = "AOE: " .. (aoeMode and "ON" or "OFF")
-    toggle.BackgroundColor3 = aoeMode and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
-    status.Text = "Hits: " .. hitCount .. " | AOE: " .. (aoeMode and "ON" or "OFF")
+    aoe = not aoe
+    toggle.Text = "AOE: " .. (aoe and "ON" or "OFF")
+    toggle.BackgroundColor3 = aoe and Color3.fromRGB(0,150,0) or Color3.fromRGB(150,0,0)
 end)
 
--- Get all targets
+-- Get targets
 local function getTargets()
-    local targets = {}
-    for _, plr in Players:GetPlayers() do
-        if plr ~= LocalPlayer and plr.Character then
-            local hum = plr.Character:FindFirstChild("Humanoid")
-            local root = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hum and root then table.insert(targets, {hum=hum, root=root, name=plr.Name}) end
+    local t = {}
+    for _, p in P:GetPlayers() do
+        if p ~= L and p.Character then
+            local hum = p.Character:FindFirstChild("Humanoid")
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            if hum and root then table.insert(t, {hum=hum, root=root, name=p.Name}) end
         end
     end
-    for _, obj in workspace:GetDescendants() do
-        if obj:IsA("Humanoid") and obj.Parent ~= LocalPlayer.Character then
-            local root = obj.Parent:FindFirstChild("HumanoidRootPart")
-            if root then table.insert(targets, {hum=obj, root=root, name=obj.Parent.Name}) end
+    for _, o in workspace:GetDescendants() do
+        if o:IsA("Humanoid") and o.Parent ~= L.Character then
+            local root = o.Parent:FindFirstChild("HumanoidRootPart")
+            if root then table.insert(t, {hum=o, root=root, name=o.Parent.Name}) end
         end
     end
-    return targets
+    return t
 end
 
--- Spam on G
-UIS.InputBegan:Connect(function(inp, proc)
-    if proc or inp.KeyCode ~= Enum.KeyCode.G then return end
-    status.Text = "SPAMMING " .. (aoeMode and #getTargets() .. " TARGETS..." or "SINGLE...")
-    local targets = aoeMode and getTargets() or {{hum = workspace[LocalPlayer.Name.."Target"] or nil}}
+-- Spam
+U.InputBegan:Connect(function(i, p)
+    if p or i.KeyCode ~= Enum.KeyCode.G then return end
+    status.Text = "SPAMMING..."
+    local targets = aoe and getTargets() or {}
     local total = 0
     for _, t in targets do
-        if t.hum and t.hum.Health > 0 then
-            for i = 1, hitCount do
+        if t.hum then
+            for _ = 1, hits do
                 pcall(function()
-                    damageRemote:FireServer(t.hum, 999)
-                    damageRemote:FireServer(t.root, 999)
+                    r:FireServer(t.hum, 999)
+                    r:FireServer(t.root, 999)
                 end)
                 total += 1
-                if i % 15 == 0 then task.wait() end
+                if _ % 10 == 0 then task.wait() end
             end
         end
     end
-    status.Text = "DONE: " .. total .. " HITS | " .. #targets .. " TARGETS"
+    status.Text = "DONE: " .. total .. " HITS ON " .. #targets .. " TARGETS"
 end)
 
-print("AOE MULTI-HIT LOADED | G = SPAM ALL | TOGGLE BUTTON")
+print("AOE MULTI-HIT LOADED | G = SPAM ALL")
